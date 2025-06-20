@@ -1,11 +1,11 @@
 """Research Agent Package - Simplified exports."""
 
-from .state import ResearchSwarmState, update_pdf_analysis
+from .state import AutoDRP_state, update_pdf_analysis
 from .utils import PDFAnalyzer, get_pdf_analyzer
 from .mcp import MCPManager
 
 __all__ = [
-    "ResearchSwarmState",
+    "AutoDRP_state",
     "update_pdf_analysis", 
     "PDFAnalyzer",
     "get_pdf_analyzer",

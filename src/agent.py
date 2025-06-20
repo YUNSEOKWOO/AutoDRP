@@ -14,7 +14,7 @@ import os
 from AutoDRP.mcp import MCPManager
 
 # Import state schema and helper functions from local state module
-from AutoDRP.state import ResearchSwarmState, update_pdf_analysis, update_preprocessing_progress, update_raw_data_info, set_target_model
+from AutoDRP.state import AutoDRP_state, StateManager, AgentStatus, update_pdf_analysis, update_preprocessing_progress, update_raw_data_info, set_target_model
 
 from AutoDRP.prompts import data_agent_prompt, env_agent_prompt, mcp_agent_prompt, code_agent_prompt, analyzing_prompt
 
@@ -63,7 +63,7 @@ async def create_data_agent(sequential_thinking_tools, desktop_commander_tools):
         """Scan AutoDRP/data directory for available raw datasets."""
         try:
             data_paths = [
-                "/mnt/data/project/ysu1516/LangGraph/AutoDRP/data",
+                "data",
                 "./data",
                 "../data"
             ]
@@ -174,6 +174,139 @@ async def create_data_agent(sequential_thinking_tools, desktop_commander_tools):
         except Exception as e:
             return f"Error updating state: {str(e)}"
     
+    @tool
+    def generate_preprocessing_script(model_requirements: str, data_info: str, output_filename: str) -> str:
+        """Generate preprocessing script based on model requirements and data analysis."""
+        try:
+            # Handle path for Docker container - avoid data/ duplication
+            clean_name = output_filename.lstrip('./')
+            script_path = clean_name if clean_name.startswith('data/') else os.path.join("data", clean_name)
+            
+            # Basic preprocessing script template
+            script_content = f'''#!/usr/bin/env python3
+"""
+Auto-generated preprocessing script for AutoDRP
+Model requirements: {model_requirements}
+Data info: {data_info}
+"""
+
+import pandas as pd
+import numpy as np
+import os
+from pathlib import Path
+
+def preprocess_data():
+    """Main preprocessing function."""
+    print("Starting data preprocessing...")
+    
+    # Add specific preprocessing logic here based on model requirements
+    # This is a template that should be customized
+    
+    print("Preprocessing completed successfully!")
+    return True
+
+if __name__ == "__main__":
+    success = preprocess_data()
+    if success:
+        print("✅ Preprocessing script executed successfully")
+    else:
+        print("❌ Preprocessing failed")
+'''
+            
+            with open(script_path, 'w') as f:
+                f.write(script_content)
+            
+            os.chmod(script_path, 0o755)  # Make executable
+            
+            return f"📄 Generated preprocessing script: {script_path}\\n\\nNext steps:\\n1. Customize the script with specific preprocessing logic\\n2. Execute the script using execute_preprocessing_script tool"
+            
+        except Exception as e:
+            return f"Error generating preprocessing script: {str(e)}"
+    
+    @tool
+    def execute_preprocessing_script(script_filename: str) -> str:
+        """Execute preprocessing script in data directory."""
+        try:
+            # Handle path for Docker container - avoid data/ duplication
+            clean_name = script_filename.lstrip('./')
+            script_path = clean_name if clean_name.startswith('data/') else os.path.join("data", clean_name)
+            
+            if not os.path.exists(script_path):
+                return f"❌ Script not found: {script_path}"
+            
+            import subprocess
+            # Extract relative path from data directory for subprocess
+            relative_path = script_path[5:] if script_path.startswith('data/') else script_path
+            result = subprocess.run(
+                ["python3", relative_path], 
+                cwd="data",
+                capture_output=True, 
+                text=True
+            )
+            
+            output = f"🔧 Executed: {script_filename}\\n"
+            output += f"Return code: {result.returncode}\\n"
+            
+            if result.stdout:
+                output += f"📤 Output:\\n{result.stdout}\\n"
+            
+            if result.stderr:
+                output += f"⚠️ Errors:\\n{result.stderr}\\n"
+            
+            if result.returncode == 0:
+                output += "✅ Script executed successfully!"
+            else:
+                output += "❌ Script execution failed!"
+            
+            return output
+            
+        except Exception as e:
+            return f"Error executing preprocessing script: {str(e)}"
+    
+    @tool
+    def validate_preprocessed_data(data_file: str, expected_format: str) -> str:
+        """Validate preprocessed data against expected format."""
+        try:
+            # Handle path for Docker container - avoid data/ duplication
+            clean_name = data_file.lstrip('./')
+            data_path = clean_name if clean_name.startswith('data/') else os.path.join("data", clean_name)
+            
+            if not os.path.exists(data_path):
+                return f"❌ Data file not found: {data_path}"
+            
+            # Load and analyze the data
+            if data_file.endswith('.csv'):
+                df = pd.read_csv(data_path)
+            elif data_file.endswith('.xlsx'):
+                df = pd.read_excel(data_path)
+            elif data_file.endswith('.tsv') or data_file.endswith('.txt'):
+                df = pd.read_csv(data_path, sep='\\t')
+            else:
+                return f"❌ Unsupported file format: {data_file}"
+            
+            validation_result = []
+            validation_result.append(f"📊 File: {data_file}")
+            validation_result.append(f"📏 Shape: {df.shape}")
+            validation_result.append(f"📋 Columns: {list(df.columns)}")
+            validation_result.append(f"🔍 Data types: {dict(df.dtypes)}")
+            validation_result.append(f"📝 Expected format: {expected_format}")
+            
+            # Basic validation checks
+            if df.empty:
+                validation_result.append("❌ Warning: Data is empty")
+            else:
+                validation_result.append("✅ Data is not empty")
+            
+            if df.isnull().sum().sum() > 0:
+                validation_result.append(f"⚠️ Missing values found: {df.isnull().sum().sum()} total")
+            else:
+                validation_result.append("✅ No missing values")
+            
+            return "\\n".join(validation_result)
+            
+        except Exception as e:
+            return f"Error validating data: {str(e)}"
+    
     data_agent = create_react_agent(
         model,
         prompt=data_agent_prompt,
@@ -183,7 +316,10 @@ async def create_data_agent(sequential_thinking_tools, desktop_commander_tools):
             scan_raw_data_directory,
             analyze_data_structure,
             map_cell_lines,
-            update_preprocessing_state
+            update_preprocessing_state,
+            generate_preprocessing_script,
+            execute_preprocessing_script,
+            validate_preprocessed_data
         ] + sequential_thinking_tools + desktop_commander_tools,
         name="data_agent",
     )
@@ -390,7 +526,7 @@ async def create_app():
         agent_swarm = create_swarm(
             [data_agent, env_agent, mcp_agent, code_agent, analyzing_agent], 
             default_active_agent="analyzing_agent",
-            state_schema=ResearchSwarmState
+            state_schema=AutoDRP_state
         )
         
         # 스웜 컴파일

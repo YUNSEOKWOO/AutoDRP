@@ -1,7 +1,7 @@
 [project]
 name = "AutoDRP"
 version = "0.0.1"
-description = "AutoDRP - Automated Decision Research Platform."
+description = "AutoDRP - Automated Drug-Response Prediction Pipeline."
 authors = [
     { name = "Lance Martin" }
 ]
