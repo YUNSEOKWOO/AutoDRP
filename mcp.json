@@ -1,0 +1,26 @@
+{
+  "servers": {
+    "sequential_thinking": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-sequential-thinking"],
+      "transport": "stdio",
+      "description": "Sequential thinking MCP server for step-by-step reasoning",
+      "enabled": true,
+      "startup_required": true
+    },
+    "desktop_commander": {
+      "command": "npx", 
+      "args": ["-y", "@wonderwhy-er/desktop-commander"],
+      "transport": "stdio",
+      "description": "Desktop Commander MCP server for file system operations",
+      "enabled": true,
+      "startup_required": false
+    }
+  },
+  "settings": {
+    "startup_timeout": 5,
+    "connection_retry_count": 3,
+    "cache_tools": true,
+    "concurrent_initialization": true
+  }
+} 
