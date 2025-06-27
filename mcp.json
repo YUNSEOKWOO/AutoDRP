@@ -9,10 +9,18 @@
       "startup_required": true
     },
     "desktop_commander": {
-      "command": "npx", 
+      "command": "npx",
       "args": ["-y", "@wonderwhy-er/desktop-commander"],
       "transport": "stdio",
       "description": "Desktop Commander MCP server for file system operations",
+      "enabled": true,
+      "startup_required": false
+    },
+    "serena": {
+      "command": "npx",
+      "args": ["-y", "@oraios/serena"],
+      "transport": "stdio",
+      "description": "Serena MCP server for code assistant",
       "enabled": true,
       "startup_required": false
     }
@@ -23,4 +31,4 @@
     "cache_tools": true,
     "concurrent_initialization": true
   }
-} 
+}

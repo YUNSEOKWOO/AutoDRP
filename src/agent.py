@@ -16,7 +16,7 @@ from AutoDRP.utils import get_pdf_analyzer
 
 
 # LLM
-model = init_chat_model(model="claude-3-5-sonnet-20241022", model_provider="anthropic")
+model = init_chat_model(model="claude-3-5-haiku-20241022", model_provider="anthropic")
 
 # Handoff tools
 transfer_to_data_agent = create_handoff_tool(
@@ -280,7 +280,7 @@ async def create_app():
         checkpointer = InMemorySaver()
         agent_swarm = create_swarm(
             [data_agent, env_agent, mcp_agent, code_agent, analyzing_agent], 
-            default_active_agent="data_agent",
+            default_active_agent="analyzing_agent",
             state_schema=AutoDRP_state
         )
         

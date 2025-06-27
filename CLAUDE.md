@@ -85,7 +85,7 @@ MCP server configuration with clean separation of concerns:
 
 #### `langgraph.json`
 LangGraph CLI configuration:
-- Graph entry point: `./src/agent.py:create_app`
+- Graph entry point: `./src/agent.py:app`
 - Environment file reference
 
 #### `pyproject.toml`
