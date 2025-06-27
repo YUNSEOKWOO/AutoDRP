@@ -26,8 +26,7 @@ class MCPManager:
         try:
             possible_paths = [
                 self.config_path,
-                f"../../{self.config_path}",
-                f"/app/workspace/langgraph-swarm-py/examples/research/{self.config_path}"
+                f"../../{self.config_path}"
             ]
             
             for path in possible_paths:
