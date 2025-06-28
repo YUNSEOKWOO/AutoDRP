@@ -25,6 +25,7 @@ Before running AutoDRP, install required MCP servers:
 ```bash
 npm install -g @modelcontextprotocol/server-sequential-thinking
 npm install -g @wonderwhy-er/desktop-commander
+npm install -g @oraios/serena  # Optional code assistant server
 ```
 
 ## Architecture Overview
@@ -57,31 +58,34 @@ AutoDRP uses a **LangGraph Swarm** architecture with 5 specialized agents:
 #### State Management (`src/state.py`)
 - **AutoDRP_state**: Simplified state schema extending SwarmState
 - **StateManager**: Basic state operations for agent coordination
+- **GlobalStateManager**: Thread-safe global state with simple dict-based storage
 - Features: PDF analysis storage, agent results, handoff context
 
 #### MCP Integration (`src/mcp.py`)
 - **MCPManager**: Manages multiple MCP servers with async initialization
 - Configuration-driven server management via `mcp.json`
 - Concurrent server initialization with caching and error resilience
+- Uses `langchain_mcp_adapters.client.MultiServerMCPClient` for server coordination
 
 #### PDF Analysis (`src/utils.py`)
 - **PDFAnalyzer**: Comprehensive PDF processing with caching
 - RAG (Retrieval Augmented Generation) support with Chroma vectorstore
 - Content categorization: architecture, methodology, preprocessing, hyperparameters
-- Smart caching based on file modification times
+- Smart caching based on file modification times using PyMuPDF loader
 
 #### Agent Factory (`src/agent.py`)
-- Async agent creation with parallel initialization
+- Async agent creation with parallel initialization via asyncio tasks
 - Tool composition: Sequential thinking + specialized tools per agent
-- Error handling and performance optimization utilities
+- LLM model: claude-3-5-haiku-20241022 via Anthropic provider
+- Error handling and performance optimization utilities with graceful shutdown
 
 ### Configuration Files
 
 #### `mcp.json`
 MCP server configuration with clean separation of concerns:
-- Server definitions with enable/disable flags
-- Transport and command specifications
-- Startup requirements and timeout settings
+- Server definitions with enable/disable flags (sequential_thinking, desktop_commander, serena)
+- Transport and command specifications using npx for npm packages
+- Startup requirements and timeout settings (5s timeout, 3 retries, concurrent initialization)
 
 #### `langgraph.json`
 LangGraph CLI configuration:
@@ -133,4 +137,11 @@ Each agent receives different tool combinations:
 - State is preserved using simple dict-based storage compatible with SwarmState
 - All file operations should use Desktop Commander tools rather than direct file I/O  
 - PDF analysis results are automatically cached for performance
-- Use simplified state tools: `save_agent_result`, `get_agent_result`, `set_handoff_info`, `get_handoff_info`, `view_current_state`
+- Default active agent is `analyzing_agent` - the system starts with this agent
+- The app uses InMemorySaver for checkpointing and graceful shutdown handling
+- Environment variables are loaded via `.env` file referenced in `langgraph.json`
+
+### Analyzing Agent PDF Tools
+- `analyze_pdfs(query="")`: Analyze PDF documents with optional query focus
+- `find_pdf_files()`: Find all available PDF files in models directory
+- `get_pdf_summary(pdf_name="")`: Get detailed summary of specific PDF file

@@ -1,0 +1,20 @@
+{
+  "gateway": {
+    "enabled": true,
+    "mode": "docker_containers"
+  },
+  "servers": {
+    "sequential_thinking": {
+      "host": "mcp-sequential",
+      "port": 8080,
+      "transport": "stdio",
+      "description": "Sequential thinking MCP server for step-by-step reasoning",
+      "enabled": true
+    }
+  },
+  "settings": {
+    "connection_timeout": 10,
+    "retry_count": 3,
+    "log_level": "info"
+  }
+}

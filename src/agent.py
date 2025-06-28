@@ -257,16 +257,17 @@ async def create_app():
         load_time = asyncio.get_event_loop().time() - start_time
         print(f"[INIT] MCP servers initialized in {load_time:.2f} seconds")
         
+        # 사용 가능한 도구 확인
+        sequential_tools = tools.get("sequential_thinking", [])
+        desktop_tools = tools.get("desktop_commander", [])
+        
         # 병렬 에이전트 생성
-        data_agent_task = asyncio.create_task(create_data_agent(tools["sequential_thinking"], tools["desktop_commander"]))
-        env_agent_task = asyncio.create_task(create_env_agent(tools["sequential_thinking"]))
-        mcp_agent_task = asyncio.create_task(create_mcp_agent(tools["sequential_thinking"]))
-        code_agent_task = asyncio.create_task(create_code_agent(tools["sequential_thinking"]))
+        data_agent_task = asyncio.create_task(create_data_agent(sequential_tools, desktop_tools))
+        env_agent_task = asyncio.create_task(create_env_agent(sequential_tools))
+        mcp_agent_task = asyncio.create_task(create_mcp_agent(sequential_tools))
+        code_agent_task = asyncio.create_task(create_code_agent(sequential_tools))
         analyzing_agent_task = asyncio.create_task(
-            create_analyzing_agent(
-                tools["sequential_thinking"], 
-                tools["desktop_commander"]
-            )
+            create_analyzing_agent(sequential_tools, desktop_tools)
         )
         
         # 모든 에이전트 생성 완료 대기
