@@ -10,6 +10,13 @@
       "transport": "stdio",
       "description": "Sequential thinking MCP server for step-by-step reasoning",
       "enabled": true
+    },
+    "desktop_commander": {
+      "host": "mcp-desktop-commander",
+      "port": 8080,
+      "transport": "stdio",
+      "description": "Desktop commander MCP server for file operations",
+      "enabled": true
     }
   },
   "settings": {

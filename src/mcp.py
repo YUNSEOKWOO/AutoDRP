@@ -136,7 +136,7 @@ class MCPManager:
         if not self.docker_client:
             return
             
-        container_names = ["mcp-sequential", "mcp-filesystem"]
+        container_names = ["mcp-sequential", "mcp-desktop-commander"]
         max_wait = 30  # seconds
         wait_interval = 2
         
@@ -168,7 +168,7 @@ class MCPManager:
             # Map server names to container names
             container_mapping = {
                 "sequential_thinking": "mcp-sequential", 
-                "filesystem": "mcp-filesystem"
+                "desktop_commander": "mcp-desktop-commander"
             }
             
             container_name = container_mapping.get(server_name)
@@ -252,30 +252,6 @@ class MCPManager:
             
             tools.append(sequential_thinking_tool)
             
-        elif server_name == "filesystem":
-            @tool
-            async def read_file_tool(file_path: str) -> str:
-                """Real file reading tool via Docker container."""
-                try:
-                    container = self.docker_client.containers.get(container_name)
-                    command = f'cat {file_path}'
-                    exec_result = container.exec_run(command)
-                    return exec_result.output.decode() if exec_result.output else f"Could not read {file_path}"
-                except Exception as e:
-                    return f"Error reading {file_path}: {str(e)}"
-            
-            @tool
-            async def list_files_tool(directory: str = ".") -> str:
-                """Real file listing tool via Docker container."""
-                try:
-                    container = self.docker_client.containers.get(container_name)
-                    command = f'ls -la {directory}'
-                    exec_result = container.exec_run(command)
-                    return exec_result.output.decode() if exec_result.output else f"Could not list {directory}"
-                except Exception as e:
-                    return f"Error listing {directory}: {str(e)}"
-                
-            tools.extend([read_file_tool, list_files_tool])
         
         return tools
     

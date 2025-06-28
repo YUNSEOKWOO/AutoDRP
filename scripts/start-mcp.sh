@@ -11,6 +11,8 @@ docker network create mcp-network 2>/dev/null || echo "Network already exists"
 echo "🧹 Cleaning up existing containers..."
 docker stop mcp-sequential 2>/dev/null || true
 docker rm mcp-sequential 2>/dev/null || true
+docker stop mcp-desktop-commander 2>/dev/null || true
+docker rm mcp-desktop-commander 2>/dev/null || true
 
 # Sequential thinking 서버 시작
 echo "🧠 Starting sequential thinking server..."
@@ -18,8 +20,17 @@ docker run -d \
   --name mcp-sequential \
   --network mcp-network \
   --restart unless-stopped \
-  -e MCP_TRANSPORT=stdio \
+  -i -t \
   mcp/sequentialthinking
+
+# Desktop commander 서버 시작
+echo "🖥️ Starting desktop commander server..."
+docker run -d \
+  --name mcp-desktop-commander \
+  --network mcp-network \
+  --restart unless-stopped \
+  -i -t \
+  mcp/desktop-commander
 
 # 컨테이너 상태 확인
 echo "📋 Checking container status..."
@@ -33,6 +44,13 @@ if docker ps --filter "name=mcp-sequential" --filter "status=running" | grep -q 
 else
     echo "❌ Sequential thinking server failed to start"
     docker logs mcp-sequential --tail 10
+fi
+
+if docker ps --filter "name=mcp-desktop-commander" --filter "status=running" | grep -q mcp-desktop-commander; then
+    echo "✅ Desktop commander server is running"
+else
+    echo "❌ Desktop commander server failed to start"
+    docker logs mcp-desktop-commander --tail 10
 fi
 
 echo "🎉 MCP environment startup complete!"
