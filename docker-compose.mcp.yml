@@ -9,8 +9,81 @@ services:
     tty: true
     command: ["node", "dist/index.js"]
     restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
     healthcheck:
       test: ["CMD", "pgrep", "-f", "node"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  mcp-desktop-commander:
+    image: mcp/desktop-commander
+    networks:
+      - mcp-network
+    stdin_open: true
+    tty: true
+    volumes:
+      - /mnt/data/project/ysu1516/LangGraph/AutoDRP:/workspace
+    working_dir: /workspace
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    healthcheck:
+      test: ["CMD", "pgrep", "-f", "node"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  mcp-context7:
+    image: mcp/context7
+    networks:
+      - mcp-network
+    stdin_open: true
+    tty: true
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    healthcheck:
+      test: ["CMD", "pgrep", "-f", "node"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  mcp-serena:
+    image: ghcr.io/oraios/serena:latest
+    container_name: mcp-serena
+    networks:
+      - mcp-network
+    volumes:
+      - /mnt/data/project/ysu1516/LangGraph/AutoDRP:/workspace/AutoDRP
+    environment:
+      - SERENA_DOCKER=1
+      - SERENA_PORT=9121
+      - SERENA_DASHBOARD_PORT=24283
+    ports:
+      - "9121:9121"
+      - "24283:24283"
+    stdin_open: true
+    tty: true
+    command: [".venv/bin/serena-mcp-server", "--transport", "stdio", "--project", "/workspace/AutoDRP"]
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    healthcheck:
+      test: ["CMD", "pgrep", "-f", "serena"]
       interval: 30s
       timeout: 10s
       retries: 3

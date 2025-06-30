@@ -13,9 +13,16 @@
     },
     "desktop_commander": {
       "host": "mcp-desktop-commander",
-      "port": 8080,
+      "port": 8081,
       "transport": "stdio",
       "description": "Desktop commander MCP server for file operations",
+      "enabled": true
+    },
+    "context7": {
+      "host": "mcp-context7",
+      "port": 8082,
+      "transport": "http",
+      "description": "Context7 MCP server for real-time library documentation",
       "enabled": true
     }
   },

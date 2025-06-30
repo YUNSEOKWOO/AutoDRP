@@ -25,12 +25,12 @@ echo
 
 # 포트 사용 상태
 echo "🔌 Port Usage:"
-netstat -tlnp 2>/dev/null | grep -E ":(8080|8081|8082)" || echo "No MCP ports in use"
+netstat -tlnp 2>/dev/null | grep -E ":(8080|8081|8082|9121|24283)" || echo "No MCP ports in use"
 echo
 
 # 로그 요약 (최근 오류만)
 echo "📝 Recent Logs (Errors only):"
-for container in mcp-sequential mcp-filesystem; do
+for container in mcp-sequential mcp-desktop-commander mcp-serena mcp-context7; do
     if docker ps --filter "name=$container" --filter "status=running" | grep -q $container; then
         echo "--- $container (last 5 error lines) ---"
         docker logs $container 2>&1 | grep -i error | tail -5 || echo "No errors found"
@@ -54,10 +54,10 @@ total_count=$(docker ps -a --filter "name=mcp-" | wc -l)
 
 if [ $running_count -eq 0 ]; then
     echo "❌ No MCP containers are running"
-elif [ $running_count -eq 2 ]; then
-    echo "✅ All MCP services are running ($running_count/2)"
+elif [ $running_count -eq 4 ]; then
+    echo "✅ All MCP services are running ($running_count/4)"
 else
-    echo "⚠️  Some MCP services are not running ($running_count/2)"
+    echo "⚠️  Some MCP services are not running ($running_count/4)"
 fi
 
 echo "=========================="

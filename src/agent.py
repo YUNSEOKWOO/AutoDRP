@@ -14,7 +14,6 @@ from AutoDRP.state import AutoDRP_state, StateManager, update_pdf_analysis, upda
 from AutoDRP.prompts import data_agent_prompt, env_agent_prompt, mcp_agent_prompt, code_agent_prompt, analyzing_prompt
 from AutoDRP.utils import get_pdf_analyzer
 
-
 # LLM
 model = init_chat_model(model="claude-3-5-haiku-20241022", model_provider="anthropic")
 
@@ -81,8 +80,8 @@ def compress_error_message(error: Exception, max_length: int = 100) -> str:
     return f"{type(error).__name__}: {error_msg[:max_length-20]}...{error_msg[-15:]}"
 
 # Data agent - for data-related tasks
-async def create_data_agent(sequential_thinking_tools, desktop_commander_tools):
-    """Create data agent with Sequential Thinking and Desktop Commander tools only."""
+async def create_data_agent(sequential_thinking_tools, desktop_commander_tools, context7_tools):
+    """Create data agent with Sequential Thinking, Desktop Commander, and Context7 tools."""
     
     data_agent = create_react_agent(
         model,
@@ -91,7 +90,7 @@ async def create_data_agent(sequential_thinking_tools, desktop_commander_tools):
             transfer_to_code_agent,
             transfer_to_analyzing_agent,
             # No custom tools - Agent uses Desktop Commander for all data operations
-        ] + sequential_thinking_tools + desktop_commander_tools,
+        ] + sequential_thinking_tools + desktop_commander_tools + context7_tools,
         name="data_agent",
     )
     return data_agent
@@ -257,17 +256,16 @@ async def create_app():
         load_time = asyncio.get_event_loop().time() - start_time
         print(f"[INIT] MCP servers initialized in {load_time:.2f} seconds")
         
-        # 사용 가능한 도구 확인
-        sequential_tools = tools.get("sequential_thinking", [])
-        desktop_tools = tools.get("desktop_commander", [])
-        
         # 병렬 에이전트 생성
-        data_agent_task = asyncio.create_task(create_data_agent(sequential_tools, desktop_tools))
-        env_agent_task = asyncio.create_task(create_env_agent(sequential_tools))
-        mcp_agent_task = asyncio.create_task(create_mcp_agent(sequential_tools))
-        code_agent_task = asyncio.create_task(create_code_agent(sequential_tools))
+        data_agent_task = asyncio.create_task(create_data_agent(tools["sequential_thinking"], tools["desktop_commander"], tools.get("context7", [])))
+        env_agent_task = asyncio.create_task(create_env_agent(tools["sequential_thinking"]))
+        mcp_agent_task = asyncio.create_task(create_mcp_agent(tools["sequential_thinking"]))
+        code_agent_task = asyncio.create_task(create_code_agent(tools["sequential_thinking"]))
         analyzing_agent_task = asyncio.create_task(
-            create_analyzing_agent(sequential_tools, desktop_tools)
+            create_analyzing_agent(
+                tools["sequential_thinking"], 
+                tools["desktop_commander"]
+            )
         )
         
         # 모든 에이전트 생성 완료 대기
@@ -281,7 +279,7 @@ async def create_app():
         checkpointer = InMemorySaver()
         agent_swarm = create_swarm(
             [data_agent, env_agent, mcp_agent, code_agent, analyzing_agent], 
-            default_active_agent="analyzing_agent",
+            default_active_agent="data_agent",
             state_schema=AutoDRP_state
         )
         

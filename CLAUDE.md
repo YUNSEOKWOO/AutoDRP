@@ -21,127 +21,153 @@ mypy src/
 ```
 
 ### Installation Requirements
-Before running AutoDRP, install required MCP servers:
+AutoDRP uses Docker containers for MCP servers via MCP Gateway mode:
 ```bash
-npm install -g @modelcontextprotocol/server-sequential-thinking
-npm install -g @wonderwhy-er/desktop-commander
-npm install -g @oraios/serena  # Optional code assistant server
+# Start MCP server containers
+docker-compose -f docker-compose.mcp.yml up -d
+
+# Verify containers are running
+docker ps | grep mcp-
 ```
 
 ## Architecture Overview
 
-### Multi-Agent System Structure
-AutoDRP uses a **LangGraph Swarm** architecture with 5 specialized agents:
+### Multi-Agent LangGraph Swarm System
+AutoDRP implements a **multi-agent coordination pattern** using LangGraph Swarm with 5 specialized agents that communicate through handoffs and shared state:
 
-1. **analyzing_agent**: Main analysis agent with PDF processing and file system access
-   - Tools: PDF analysis, Desktop Commander file operations, Sequential thinking
-   - Role: Deep analysis of research papers and model implementations
+1. **analyzing_agent** (Default Active): Research paper analysis and code inspection
+   - **Tools**: PDF analysis with RAG, Desktop Commander file ops, Sequential thinking
+   - **Role**: Extract preprocessing requirements from papers and source code
+   - **Handoffs**: To data_agent with preprocessing specs, to code_agent for execution details
 
-2. **data_agent**: Handles data processing tasks
-   - Tools: Desktop Commander file operations, Sequential thinking  
-   - Role: Data preprocessing, file manipulation, dataset management
+2. **data_agent**: Custom data preprocessing pipeline creation
+   - **Tools**: Desktop Commander for file operations, Sequential thinking
+   - **Role**: Create custom Python scripts for data transformation using Desktop Commander
+   - **Pattern**: No pre-built data tools - dynamically creates analysis scripts per situation
 
-3. **env_agent**: Environment and configuration management
-   - Tools: Sequential thinking
-   - Role: Environment setup, dependency management
+3. **env_agent**: Docker environment and dependency management
+4. **mcp_agent**: MCP server coordination and API wrapping
+5. **code_agent**: Model execution and API communication
 
-4. **mcp_agent**: MCP server coordination
-   - Tools: Sequential thinking
-   - Role: MCP server management and tool integration
+### Core Architectural Components
 
-5. **code_agent**: Code-related tasks
-   - Tools: Sequential thinking
-   - Role: Code generation, analysis, and implementation
+#### Agent Communication Architecture (`src/agent.py`)
+- **Async Parallel Initialization**: All agents created concurrently using asyncio tasks
+- **Transfer Tool Pattern**: Each agent has handoff tools to specific other agents
+- **Default Active Agent**: System starts with analyzing_agent
+- **Tool Composition Strategy**: 
+  - Base: Sequential thinking for all agents
+  - Specialized: PDF tools (analyzing_agent), Desktop Commander (analyzing + data agents)
+- **Graceful Shutdown**: Signal handling and resource cleanup on termination
 
-### Core Components
+#### State Coordination System (`src/state.py`)
+- **SwarmState Extension**: AutoDRP_state extends LangGraph Swarm's base state
+- **Thread-Safe Global State**: GlobalStateManager with locking for concurrent access
+- **Simple Dict-Based Storage**: No complex schemas, compatible with TypedDict requirements
+- **State Operations**: PDF analysis storage, agent results, handoff context tracking
+- **Legacy Compatibility**: Wrapper functions for existing state update patterns
 
-#### State Management (`src/state.py`)
-- **AutoDRP_state**: Simplified state schema extending SwarmState
-- **StateManager**: Basic state operations for agent coordination
-- **GlobalStateManager**: Thread-safe global state with simple dict-based storage
-- Features: PDF analysis storage, agent results, handoff context
+#### MCP Gateway Architecture (`src/mcp.py`)
+- **Docker Container Coordination**: MCPManager handles containerized MCP servers
+- **Async Server Discovery**: Dynamic container detection and connection establishment
+- **Multi-Transport Support**: stdio (sequential/desktop) and HTTP (context7) transports
+- **Connection Resilience**: Retry logic, timeout handling, graceful degradation
+- **Container Mapping**: Abstract server names to concrete container hosts/ports
 
-#### MCP Integration (`src/mcp.py`)
-- **MCPManager**: Manages multiple MCP servers with async initialization
-- Configuration-driven server management via `mcp.json`
-- Concurrent server initialization with caching and error resilience
-- Uses `langchain_mcp_adapters.client.MultiServerMCPClient` for server coordination
+#### PDF Analysis Pipeline (`src/utils.py`)
+- **Intelligent Caching**: File modification time-based cache invalidation
+- **Content Categorization**: Architecture, methodology, preprocessing keyword extraction  
+- **RAG Integration**: Chroma vectorstore with OpenAI embeddings for semantic search
+- **Performance Optimization**: Document chunking with overlap, lazy loading
+- **State Integration**: Automatic PDF analysis result storage in global state
 
-#### PDF Analysis (`src/utils.py`)
-- **PDFAnalyzer**: Comprehensive PDF processing with caching
-- RAG (Retrieval Augmented Generation) support with Chroma vectorstore
-- Content categorization: architecture, methodology, preprocessing, hyperparameters
-- Smart caching based on file modification times using PyMuPDF loader
+### Critical Design Patterns
 
-#### Agent Factory (`src/agent.py`)
-- Async agent creation with parallel initialization via asyncio tasks
-- Tool composition: Sequential thinking + specialized tools per agent
-- LLM model: claude-3-5-haiku-20241022 via Anthropic provider
-- Error handling and performance optimization utilities with graceful shutdown
+#### Agent Specialization Pattern
+Each agent has distinct responsibilities with minimal overlap:
+- **analyzing_agent**: Research comprehension and requirement extraction
+- **data_agent**: Dynamic preprocessing script generation (no built-in data tools)
+- **Other agents**: Domain-specific tasks (env, mcp, code execution)
 
-### Configuration Files
+#### Custom Tool Creation Pattern (data_agent)
+Instead of fixed data analysis tools, data_agent creates custom solutions:
+```python
+# Pattern: write_file() → execute_command() → iterate
+write_file("analyze.py", custom_pandas_code)
+execute_command("python analyze.py")
+# Analyze results and create next script
+```
 
-#### `mcp.json`
-MCP server configuration with clean separation of concerns:
-- Server definitions with enable/disable flags (sequential_thinking, desktop_commander, serena)
-- Transport and command specifications using npx for npm packages
-- Startup requirements and timeout settings (5s timeout, 3 retries, concurrent initialization)
+#### MCP Server Abstraction
+- **Gateway Mode**: Docker containers provide isolated MCP server environments
+- **Tool Aggregation**: MCPManager collects tools from multiple servers into unified interface
+- **Health Monitoring**: Container health checks ensure server availability
 
-#### `langgraph.json`
-LangGraph CLI configuration:
-- Graph entry point: `./src/agent.py:app`
-- Environment file reference
+#### PDF Analysis Workflow
+1. **Auto-discovery**: Find PDFs in models/ directory structure
+2. **Cached Processing**: PyMuPDF loading with modification-time based caching
+3. **Content Extraction**: Categorized keyword matching for technical content
+4. **State Persistence**: Analysis results automatically saved for agent collaboration
 
-#### `pyproject.toml`
-Project dependencies and build configuration:
-- Core: LangChain, LangGraph, LangGraph-Swarm
-- MCP: langchain-mcp-adapters
-- Document processing: PyMuPDF, Chroma
-- Data: NumPy, Pandas
+### Configuration and Deployment
 
-### Data Structure
-- `models/`: Contains pre-trained models (DRPreter, NetGP) with datasets
-- `data/`: Raw drug IC50 and gene expression data
-- Source models include comprehensive datasets for drug-response prediction
+#### Container Orchestration (`docker-compose.mcp.yml`)
+- **Isolated Network**: mcp-network bridge for container communication
+- **Volume Mounting**: Host project directory mapped to /workspace in desktop-commander
+- **Health Monitoring**: Process-based health checks with restart policies
+- **Logging**: JSON file logging with rotation (10MB max, 3 files)
 
-### Key Design Patterns
+#### MCP Gateway Configuration (`mcp-gateway.json`)
+- **Server Definitions**: Host/port mapping for each containerized MCP server
+- **Transport Specification**: stdio vs HTTP transport per server type
+- **Connection Tuning**: 10s timeout, 3 retries, configurable logging
 
-#### Agent Handoffs
-Agents use transfer tools to delegate tasks:
-- `transfer_to_analyzing_agent`: For PDF and code analysis
-- `transfer_to_data_agent`: For data processing
-- Simple handoff context storage for coordination
+#### LangGraph Integration (`langgraph.json`)
+- **Entry Point**: `./src/agent.py:app` function as graph entry
+- **Environment Loading**: `.env` file reference for configuration
+- **Dependency Management**: Local package installation with editable mode
 
-#### Tool Composition
-Each agent receives different tool combinations:
-- All agents: Sequential thinking for step-by-step reasoning
-- analyzing_agent + data_agent: Desktop Commander for file operations
-- analyzing_agent: PDF tools for document analysis
+### Data Processing Philosophy
 
-#### Simplified State Management
-- Dict-based state storage compatible with SwarmState/TypedDict
-- Agent result storage for cross-agent communication
-- Basic handoff context for task coordination
-- No complex workflow tracking to reduce overhead
+#### No-Assumptions Data Handling
+The data_agent deliberately has no built-in data analysis capabilities, forcing custom solution creation for each unique dataset and requirement. This ensures flexibility but requires:
+- **Creative Problem Solving**: Each situation gets custom Python script solutions
+- **Desktop Commander Reliance**: All file operations through MCP tools
+- **Iterative Development**: Create → test → refine cycle for data processing
 
-#### Performance Optimization
-- Async/parallel agent initialization
-- PDF analysis caching with modification time checks
-- Simple dict-based state updates
-- Minimal state validation for speed
+#### Model-Driven Preprocessing
+Preprocessing requirements come from analyzing_agent's paper/code analysis:
+- **Paper Analysis**: Extract methodology and preprocessing steps from research papers
+- **Code Inspection**: Analyze source code to understand exact data format requirements
+- **Requirement Translation**: Convert research specifications to executable preprocessing steps
 
-## Important Notes
+### Performance and Optimization
 
-- The system expects PDF research papers in the `models/` directory structure
-- MCP servers must be installed globally via npm before running
-- State is preserved using simple dict-based storage compatible with SwarmState
-- All file operations should use Desktop Commander tools rather than direct file I/O  
-- PDF analysis results are automatically cached for performance
-- Default active agent is `analyzing_agent` - the system starts with this agent
-- The app uses InMemorySaver for checkpointing and graceful shutdown handling
-- Environment variables are loaded via `.env` file referenced in `langgraph.json`
+#### Caching Strategy
+- **PDF Analysis**: File modification time-based cache keys prevent unnecessary reprocessing
+- **Document Processing**: Chunk-level caching for large documents
+- **State Updates**: Simple dict operations for minimal overhead
 
-### Analyzing Agent PDF Tools
-- `analyze_pdfs(query="")`: Analyze PDF documents with optional query focus
-- `find_pdf_files()`: Find all available PDF files in models directory
-- `get_pdf_summary(pdf_name="")`: Get detailed summary of specific PDF file
+#### Async Patterns
+- **Parallel Agent Creation**: All 5 agents initialized concurrently
+- **Non-blocking MCP Initialization**: Server connections established asynchronously
+- **Graceful Error Handling**: Individual server failures don't block entire system
+
+### Key Implementation Notes
+
+- **Default Active Agent**: analyzing_agent handles initial user requests
+- **MCP Container Requirements**: Docker environment necessary for MCP server operation
+- **State Compatibility**: All state operations maintain SwarmState/TypedDict compatibility
+- **PDF Location**: System expects research papers in `models/` directory structure
+- **Custom Script Pattern**: data_agent creates temporary Python scripts for all data operations
+- **Environment Variable Support**: `.env` file loaded via langgraph.json reference
+
+### Development Constraints
+
+- **No Manual Test Verification**: langgraph studio used for final validation by user
+- **Rapid Prototyping Focus**: Initial logic construction over perfection
+- **Pre-built Image Preference**: Use existing Docker images rather than building new ones
+- **Build Constraints**: Docker image builds only possible in /home/ysu1516 directory
+- docker image build는 /home/ysu1516 디렉토리에서만 가능함.
+- docker container 설정을 변경할때 반드시 scripts/ 의 .sh 파일들도 같이 변경할 것.
+- container 구동 관련된 작업은 scripts/start-mcp.sh 를 활용하여 구동할 것.

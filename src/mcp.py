@@ -136,7 +136,7 @@ class MCPManager:
         if not self.docker_client:
             return
             
-        container_names = ["mcp-sequential", "mcp-desktop-commander"]
+        container_names = ["mcp-sequential", "mcp-desktop-commander", "mcp-context7"]
         max_wait = 30  # seconds
         wait_interval = 2
         
@@ -168,7 +168,8 @@ class MCPManager:
             # Map server names to container names
             container_mapping = {
                 "sequential_thinking": "mcp-sequential", 
-                "desktop_commander": "mcp-desktop-commander"
+                "desktop_commander": "mcp-desktop-commander",
+                "context7": "mcp-context7"
             }
             
             container_name = container_mapping.get(server_name)
@@ -181,8 +182,31 @@ class MCPManager:
                 print(f"[MCP] Container {container_name} is not running")
                 return []
             
-            # Create real MCP tools by connecting to container
-            tools = await self._create_real_container_tools(server_name, container_name)
+            # Configure connection based on transport type
+            if config.get("transport") == "http":
+                # HTTP transport for Context7
+                client_config = {
+                    server_name: {
+                        "url": f"http://localhost:8082/mcp",
+                        "transport": "streamable_http"
+                    }
+                }
+            else:
+                # stdio transport for other servers
+                client_config = {
+                    server_name: {
+                        "command": "docker",
+                        "args": ["exec", "-i", container_name, "node", "dist/index.js"],
+                        "transport": "stdio"
+                    }
+                }
+            
+            # Create MCP client and get real tools
+            client = MultiServerMCPClient(client_config)
+            self.clients[server_name] = client
+            
+            # Get real MCP tools from the server
+            tools = await client.get_tools()
             print(f"[MCP] Connected to container {container_name}: {len(tools)} real tools")
             return tools
             
@@ -203,57 +227,6 @@ class MCPManager:
             print(f"[MCP] Error checking container {container_name}: {e}")
             return False
     
-    async def _create_real_container_tools(self, server_name: str, container_name: str):
-        """Create real tools by connecting to MCP container."""
-        from langchain_core.tools import tool
-        import json
-        
-        tools = []
-        
-        if server_name == "sequential_thinking":
-            @tool
-            async def sequential_thinking_tool(query: str) -> str:
-                """Real sequential thinking tool via Docker container."""
-                try:
-                    container = self.docker_client.containers.get(container_name)
-                    
-                    # MCP 프로토콜 JSON-RPC 메시지 구성
-                    mcp_request = {
-                        "jsonrpc": "2.0",
-                        "id": 1,
-                        "method": "tools/call",
-                        "params": {
-                            "name": "sequential_thinking",
-                            "arguments": {"query": query}
-                        }
-                    }
-                    
-                    # Docker exec으로 MCP 서버와 통신
-                    command = f'echo \'{json.dumps(mcp_request)}\' | node dist/index.js'
-                    exec_result = container.exec_run(command, stdin=True, stdout=True, stderr=True)
-                    
-                    if exec_result.exit_code == 0 and exec_result.output:
-                        result = exec_result.output.decode().strip()
-                        # JSON 응답 파싱 시도
-                        try:
-                            response = json.loads(result)
-                            if "result" in response:
-                                return response["result"]
-                            else:
-                                return result
-                        except json.JSONDecodeError:
-                            return result
-                    else:
-                        return f"Sequential thinking analysis for: {query}\n\nStep-by-step reasoning:\n1. Problem analysis\n2. Approach identification\n3. Solution development\n4. Verification"
-                        
-                except Exception as e:
-                    print(f"[MCP] Sequential thinking error: {e}")
-                    return f"Sequential thinking analysis for: {query}\n\nStep-by-step reasoning:\n1. Problem analysis\n2. Approach identification\n3. Solution development\n4. Verification"
-            
-            tools.append(sequential_thinking_tool)
-            
-        
-        return tools
     
     async def _start_server(self, server_name: str, config: Dict[str, Any]):
         """Start a server process."""
