@@ -80,7 +80,7 @@ def compress_error_message(error: Exception, max_length: int = 100) -> str:
     return f"{type(error).__name__}: {error_msg[:max_length-20]}...{error_msg[-15:]}"
 
 # Data agent - for data-related tasks
-async def create_data_agent(sequential_thinking_tools, desktop_commander_tools, context7_tools):
+async def create_data_agent(sequential_thinking_tools, desktop_commander_tools, context7_tools, serena_tools):
     """Create data agent with Sequential Thinking, Desktop Commander, and Context7 tools."""
     
     data_agent = create_react_agent(
@@ -90,7 +90,7 @@ async def create_data_agent(sequential_thinking_tools, desktop_commander_tools, 
             transfer_to_code_agent,
             transfer_to_analyzing_agent,
             # No custom tools - Agent uses Desktop Commander for all data operations
-        ] + sequential_thinking_tools + desktop_commander_tools + context7_tools,
+        ] + sequential_thinking_tools + desktop_commander_tools + context7_tools + serena_tools,
         name="data_agent",
     )
     return data_agent
@@ -140,7 +140,7 @@ async def create_code_agent(sequential_thinking_tools):
     return code_agent
 
 
-async def create_analyzing_agent(sequential_thinking_tools, desktop_commander_tools):
+async def create_analyzing_agent(sequential_thinking_tools, desktop_commander_tools, serena_tools=None):
     """Create analyzing agent with PDF and code analysis tools."""
     print("[INIT] Creating analyzing agent...")
     
@@ -221,19 +221,27 @@ async def create_analyzing_agent(sequential_thinking_tools, desktop_commander_to
             except Exception as e:
                 return f"Error getting PDF summary: {str(e)}"
         
-        # Create analyzing agent with PDF analysis tools
+        # Prepare all tools including Serena if available
+        all_tools = [
+            transfer_to_data_agent,
+            transfer_to_env_agent,
+            transfer_to_mcp_agent,
+            transfer_to_code_agent,
+            analyze_pdfs,
+            find_pdf_files,
+            get_pdf_summary
+        ] + sequential_thinking_tools + desktop_commander_tools
+        
+        # Add Serena tools if available
+        if serena_tools:
+            all_tools.extend(serena_tools)
+            print(f"[INIT] Added {len(serena_tools)} Serena tools to analyzing agent")
+        
+        # Create analyzing agent with PDF analysis and code analysis tools
         analyzing_agent = create_react_agent(
             model,
             prompt=analyzing_prompt,
-            tools=[
-                transfer_to_data_agent,
-                transfer_to_env_agent,
-                transfer_to_mcp_agent,
-                transfer_to_code_agent,
-                analyze_pdfs,
-                find_pdf_files,
-                get_pdf_summary
-            ] + sequential_thinking_tools + desktop_commander_tools,
+            tools=all_tools,
             name="analyzing_agent",
         )
         
@@ -257,14 +265,15 @@ async def create_app():
         print(f"[INIT] MCP servers initialized in {load_time:.2f} seconds")
         
         # 병렬 에이전트 생성
-        data_agent_task = asyncio.create_task(create_data_agent(tools["sequential_thinking"], tools["desktop_commander"], tools.get("context7", [])))
+        data_agent_task = asyncio.create_task(create_data_agent(tools["sequential_thinking"], tools["desktop_commander"], tools.get("context7", []), tools.get("serena", [])))
         env_agent_task = asyncio.create_task(create_env_agent(tools["sequential_thinking"]))
         mcp_agent_task = asyncio.create_task(create_mcp_agent(tools["sequential_thinking"]))
         code_agent_task = asyncio.create_task(create_code_agent(tools["sequential_thinking"]))
         analyzing_agent_task = asyncio.create_task(
             create_analyzing_agent(
                 tools["sequential_thinking"], 
-                tools["desktop_commander"]
+                tools["desktop_commander"],
+                tools.get("serena", [])
             )
         )
         
@@ -279,7 +288,7 @@ async def create_app():
         checkpointer = InMemorySaver()
         agent_swarm = create_swarm(
             [data_agent, env_agent, mcp_agent, code_agent, analyzing_agent], 
-            default_active_agent="data_agent",
+            default_active_agent="analyzing_agent",
             state_schema=AutoDRP_state
         )
         

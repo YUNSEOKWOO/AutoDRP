@@ -65,7 +65,7 @@ services:
     networks:
       - mcp-network
     volumes:
-      - /mnt/data/project/ysu1516/LangGraph/AutoDRP:/workspace/AutoDRP
+      - /mnt/data/project/ysu1516/LangGraph/AutoDRP:/workspace
     environment:
       - SERENA_DOCKER=1
       - SERENA_PORT=9121
@@ -75,7 +75,7 @@ services:
       - "24283:24283"
     stdin_open: true
     tty: true
-    command: [".venv/bin/serena-mcp-server", "--transport", "stdio", "--project", "/workspace/AutoDRP"]
+    command: [".venv/bin/serena-mcp-server", "--transport", "stdio", "--project", "/workspace"]
     restart: unless-stopped
     logging:
       driver: "json-file"

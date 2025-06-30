@@ -24,6 +24,13 @@
       "transport": "http",
       "description": "Context7 MCP server for real-time library documentation",
       "enabled": true
+    },
+    "serena": {
+      "host": "mcp-serena",
+      "port": 9121,
+      "transport": "stdio",
+      "description": "Serena MCP server for advanced code analysis",
+      "enabled": true
     }
   },
   "settings": {

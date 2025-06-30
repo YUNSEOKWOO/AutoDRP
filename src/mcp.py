@@ -136,7 +136,7 @@ class MCPManager:
         if not self.docker_client:
             return
             
-        container_names = ["mcp-sequential", "mcp-desktop-commander", "mcp-context7"]
+        container_names = ["mcp-sequential", "mcp-desktop-commander", "mcp-context7", "mcp-serena"]
         max_wait = 30  # seconds
         wait_interval = 2
         
@@ -169,7 +169,8 @@ class MCPManager:
             container_mapping = {
                 "sequential_thinking": "mcp-sequential", 
                 "desktop_commander": "mcp-desktop-commander",
-                "context7": "mcp-context7"
+                "context7": "mcp-context7",
+                "serena": "mcp-serena"
             }
             
             container_name = container_mapping.get(server_name)
@@ -193,10 +194,17 @@ class MCPManager:
                 }
             else:
                 # stdio transport for other servers
+                if server_name == "serena":
+                    # Serena uses Python-based MCP server
+                    docker_args = ["exec", "-i", container_name, ".venv/bin/serena-mcp-server", "--transport", "stdio", "--project", "/workspace"]
+                else:
+                    # Default Node.js servers
+                    docker_args = ["exec", "-i", container_name, "node", "dist/index.js"]
+                
                 client_config = {
                     server_name: {
                         "command": "docker",
-                        "args": ["exec", "-i", container_name, "node", "dist/index.js"],
+                        "args": docker_args,
                         "transport": "stdio"
                     }
                 }

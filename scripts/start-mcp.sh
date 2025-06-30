@@ -47,13 +47,13 @@ docker run -d \
   --restart unless-stopped \
   -p 9121:9121 \
   -p 24283:24283 \
-  -v /mnt/data/project/ysu1516/LangGraph/AutoDRP:/workspace/AutoDRP \
+  -v /mnt/data/project/ysu1516/LangGraph/AutoDRP:/workspace \
   -e SERENA_DOCKER=1 \
   -e SERENA_PORT=9121 \
   -e SERENA_DASHBOARD_PORT=24283 \
   -i -t \
   ghcr.io/oraios/serena:latest \
-  .venv/bin/serena-mcp-server --transport stdio --project /workspace/AutoDRP
+  .venv/bin/serena-mcp-server --transport stdio --project /workspace
 
 # Context7 서버 시작
 echo "📚 Starting context7 server..."
