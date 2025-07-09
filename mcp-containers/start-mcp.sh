@@ -3,13 +3,14 @@
 # Load environment variables from .env
 source "$(dirname "$0")/../.env"
 
-# MCP 환경 시작 스크립트 (4 MCP 서버)
+# MCP 환경 시작 스크립트 (환경변수 사용)
 echo "🚀 Starting MCP environment..."
 echo "📁 Using PROJECT_ROOT: $PROJECT_ROOT"
+echo "📋 MCP Names: $MCP_NAMES"
 
 echo "🧹 Cleaning up existing containers..."
-docker stop mcp-sequential mcp-desktop-commander mcp-serena mcp-context7 2>/dev/null || true
-docker rm mcp-sequential mcp-desktop-commander mcp-serena mcp-context7 2>/dev/null || true
+docker stop $MCP_NAMES 2>/dev/null || true
+docker rm $MCP_NAMES 2>/dev/null || true
 
 echo "🧠 Starting sequential thinking server..."
 docker run -d --name mcp-sequential --restart unless-stopped \
@@ -66,15 +67,15 @@ sleep 3
 docker ps --filter "name=mcp-" --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
 
 echo "🔍 Running health checks..."
-containers=("mcp-sequential" "mcp-desktop-commander" "mcp-serena" "mcp-context7")
-names=("Sequential thinking" "Desktop commander" "Serena" "Context7")
+# Convert space-separated string to array for health checks
+read -r -a mcp_names_array <<< "$MCP_NAMES"
 
-for i in "${!containers[@]}"; do
-    if docker ps --filter "name=${containers[$i]}" --filter "status=running" | grep -q "${containers[$i]}"; then
-        echo "✅ ${names[$i]} server is running"
+for container in "${mcp_names_array[@]}"; do
+    if docker ps --filter "name=${container}" --filter "status=running" | grep -q "${container}"; then
+        echo "✅ ${container} server is running"
     else
-        echo "❌ ${names[$i]} server failed to start"
-        docker logs "${containers[$i]}" --tail 5
+        echo "❌ ${container} server failed to start"
+        docker logs "${container}" --tail 5
     fi
 done
 echo "🎉 MCP environment startup complete!"

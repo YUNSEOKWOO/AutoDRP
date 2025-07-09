@@ -1,6 +1,6 @@
 {
   "servers": {
-    "sequential_thinking": {
+    "mcp-sequential": {
       "enabled": true,
       "container_name": "mcp-sequential",
       "command": "node",
@@ -8,7 +8,7 @@
       "transport": "stdio",
       "description": "Sequential thinking MCP server for step-by-step reasoning"
     },
-    "desktop_commander": {
+    "mcp-desktop-commander": {
       "enabled": true,
       "container_name": "mcp-desktop-commander", 
       "command": "node",
@@ -16,7 +16,7 @@
       "transport": "stdio",
       "description": "Desktop commander MCP server for file operations"
     },
-    "context7": {
+    "mcp-context7": {
       "enabled": true,
       "container_name": "mcp-context7",
       "command": "node", 
@@ -24,7 +24,7 @@
       "transport": "stdio",
       "description": "Context7 MCP server for real-time library documentation"
     },
-    "serena": {
+    "mcp-serena": {
       "enabled": true,
       "container_name": "mcp-serena",
       "command": ".venv/bin/serena-mcp-server",

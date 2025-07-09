@@ -1,15 +1,19 @@
 #!/bin/bash
 
+# Load environment variables from .env
+source "$(dirname "$0")/../.env"
+
 # MCP 환경 정지 스크립트
 echo "🛑 Stopping MCP environment..."
+echo "📋 MCP Names: $MCP_NAMES"
 
 # MCP 컨테이너들 정지
 echo "⏹️  Stopping MCP containers..."
-docker stop mcp-sequential mcp-desktop-commander mcp-serena mcp-context7 2>/dev/null || echo "Some containers were not running"
+docker stop $MCP_NAMES 2>/dev/null || echo "Some containers were not running"
 
 # 컨테이너 제거
 echo "🗑️  Removing MCP containers..."
-docker rm mcp-sequential mcp-desktop-commander mcp-serena mcp-context7 2>/dev/null || echo "Some containers were already removed"
+docker rm $MCP_NAMES 2>/dev/null || echo "Some containers were already removed"
 
 # 최종 상태 확인
 echo "📋 Final status check..."

@@ -37,28 +37,28 @@ ACTIVE_AGENTS = [
 AGENT_METADATA = {
     "analyzing_agent": {
         "prompt": "analyzing_prompt",
-        "mcp_tools": ["sequential_thinking", "desktop_commander", "serena"],
+        "mcp_tools": ["mcp-sequential", "mcp-desktop-commander", "mcp-serena"],
         "special_tools": ["pdf_analyzer"],
         "description": "Research paper analysis and code inspection"
     },
     "data_agent": {
         "prompt": "data_agent_prompt",
-        "mcp_tools": ["sequential_thinking", "desktop_commander", "context7", "serena"],
+        "mcp_tools": ["mcp-sequential", "mcp-desktop-commander", "mcp-context7", "mcp-serena"],
         "description": "Custom data preprocessing pipeline creation"
     },
     "env_agent": {
         "prompt": "env_agent_prompt", 
-        "mcp_tools": ["sequential_thinking", "context7"],
+        "mcp_tools": ["mcp-sequential", "mcp-context7"],
         "description": "Docker environment and dependency management"
     },
     "mcp_agent": {
         "prompt": "mcp_agent_prompt",
-        "mcp_tools": ["sequential_thinking", "context7"],
+        "mcp_tools": ["mcp-sequential", "mcp-context7"],
         "description": "MCP server coordination and API wrapping"
     },
     "code_agent": {
         "prompt": "code_agent_prompt",
-        "mcp_tools": ["sequential_thinking", "desktop_commander"],
+        "mcp_tools": ["mcp-sequential", "mcp-desktop-commander"],
         "description": "Model execution and API communication"
     }
 }
@@ -195,8 +195,10 @@ async def create_all_agents(tools_dict: Dict, handoff_tools: Dict):
 
 def print_status(tools, agents, failed_agents):
     """Print system status."""
-    # MCP status
-    expected_servers = ["sequential_thinking", "desktop_commander", "context7", "serena"]
+    # MCP status - load from MCP_NAMES environment variable
+    mcp_names = os.getenv('MCP_NAMES', '').strip()
+    expected_servers = mcp_names.split() if mcp_names else []
+    
     connected = [s for s in expected_servers if s in tools and tools[s]]
     failed = [s for s in expected_servers if s not in connected]
     

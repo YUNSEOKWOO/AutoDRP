@@ -47,3 +47,4 @@ gateway.unused
 
 # Ignore Claude config
 .claude/
+CLAUDE.md
