@@ -1,0 +1,41 @@
+{
+  "servers": {
+    "sequential_thinking": {
+      "enabled": true,
+      "container_name": "mcp-sequential",
+      "command": "node",
+      "args": ["dist/index.js"],
+      "transport": "stdio",
+      "description": "Sequential thinking MCP server for step-by-step reasoning"
+    },
+    "desktop_commander": {
+      "enabled": true,
+      "container_name": "mcp-desktop-commander", 
+      "command": "node",
+      "args": ["dist/index.js"],
+      "transport": "stdio",
+      "description": "Desktop commander MCP server for file operations"
+    },
+    "context7": {
+      "enabled": true,
+      "container_name": "mcp-context7",
+      "command": "node", 
+      "args": ["dist/index.js"],
+      "transport": "stdio",
+      "description": "Context7 MCP server for real-time library documentation"
+    },
+    "serena": {
+      "enabled": true,
+      "container_name": "mcp-serena",
+      "command": ".venv/bin/serena-mcp-server",
+      "args": ["--transport", "stdio", "--project", "/workspace"],
+      "transport": "stdio",
+      "description": "Serena MCP server for advanced code analysis"
+    }
+  },
+  "settings": {
+    "connection_timeout": 15,
+    "retry_count": 3,
+    "log_level": "info"
+  }
+}

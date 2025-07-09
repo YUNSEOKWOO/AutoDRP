@@ -23,11 +23,25 @@ mypy src/
 ### Installation Requirements
 AutoDRP uses Docker containers for MCP servers via MCP Gateway mode:
 ```bash
-# Start MCP server containers
-docker-compose -f docker-compose.mcp.yml up -d
+# Start MCP server containers using provided script
+./scripts/start-mcp.sh
+
+# Stop MCP server containers
+./scripts/stop-mcp.sh
 
 # Verify containers are running
 docker ps | grep mcp-
+```
+
+### Testing and Validation
+```bash
+# Test with LangGraph Studio (primary validation method)
+uvx --refresh --from "langgraph-cli[inmem]" --with-editable . --python 3.11 langgraph dev
+# Open LangGraph Studio UI to test agent interactions
+
+# Install dependencies
+pip install -e .
+pip install -e ".[dev]"  # Install dev dependencies (mypy, ruff)
 ```
 
 ## Architecture Overview
@@ -41,13 +55,21 @@ AutoDRP implements a **multi-agent coordination pattern** using LangGraph Swarm 
    - **Handoffs**: To data_agent with preprocessing specs, to code_agent for execution details
 
 2. **data_agent**: Custom data preprocessing pipeline creation
-   - **Tools**: Desktop Commander for file operations, Sequential thinking
+   - **Tools**: Desktop Commander for file operations, Sequential thinking, Serena MCP
    - **Role**: Create custom Python scripts for data transformation using Desktop Commander
    - **Pattern**: No pre-built data tools - dynamically creates analysis scripts per situation
 
 3. **env_agent**: Docker environment and dependency management
+   - **Tools**: Sequential thinking, Context7
+   - **Role**: Build Docker images, manage containers, handle dependencies
+
 4. **mcp_agent**: MCP server coordination and API wrapping
+   - **Tools**: Sequential thinking, Context7
+   - **Role**: Wrap models with FastAPI endpoints, convert to MCP servers
+
 5. **code_agent**: Model execution and API communication
+   - **Tools**: Sequential thinking, Desktop Commander
+   - **Role**: Execute training/prediction tasks, communicate with containerized models
 
 ### Core Architectural Components
 
@@ -161,6 +183,8 @@ Preprocessing requirements come from analyzing_agent's paper/code analysis:
 - **PDF Location**: System expects research papers in `models/` directory structure
 - **Custom Script Pattern**: data_agent creates temporary Python scripts for all data operations
 - **Environment Variable Support**: `.env` file loaded via langgraph.json reference
+- **Package Management**: Uses pyproject.toml for dependency management with optional dev dependencies
+- **Project Structure**: Source code in `src/` directory, packaged as `AutoDRP` module
 
 ### Development Constraints
 
@@ -168,6 +192,22 @@ Preprocessing requirements come from analyzing_agent's paper/code analysis:
 - **Rapid Prototyping Focus**: Initial logic construction over perfection
 - **Pre-built Image Preference**: Use existing Docker images rather than building new ones
 - **Build Constraints**: Docker image builds only possible in /home/ysu1516 directory
-- docker image build는 /home/ysu1516 디렉토리에서만 가능함.
-- docker container 설정을 변경할때 반드시 scripts/ 의 .sh 파일들도 같이 변경할 것.
-- container 구동 관련된 작업은 scripts/start-mcp.sh 를 활용하여 구동할 것.
+- **Script Coordination**: When changing container configurations, update corresponding scripts in `scripts/` directory
+- **Container Management**: Use `scripts/start-mcp.sh` for starting MCP services, `scripts/stop-mcp.sh` for cleanup
+- **MCP Container Network**: All MCP containers run on isolated `mcp-network` with automatic restart policies
+
+### MCP Container Architecture
+
+#### Active MCP Servers:
+- **mcp-sequential**: Sequential thinking server (stdio transport)
+- **mcp-desktop-commander**: File operations and command execution (stdio transport)
+- **mcp-serena**: Advanced code analysis and writing (stdio transport)
+- **mcp-context7**: Real-time documentation access (HTTP transport via port 8080)
+- **mcp-gateway**: HTTP proxy for centralized access (nginx, port 8000)
+
+#### Container Initialization Process:
+1. **Network Setup**: Creates isolated `mcp-network` bridge
+2. **Container Cleanup**: Stops and removes existing containers
+3. **Service Startup**: Starts containers in dependency order
+4. **Package Installation**: Installs data science packages in Serena container from `requirements_serena.txt`
+5. **Health Checks**: Verifies all containers are running correctly

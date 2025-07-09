@@ -11,14 +11,6 @@ docker stop mcp-sequential mcp-desktop-commander mcp-serena mcp-context7 2>/dev/
 echo "🗑️  Removing MCP containers..."
 docker rm mcp-sequential mcp-desktop-commander mcp-serena mcp-context7 2>/dev/null || echo "Some containers were already removed"
 
-# 네트워크 정리 (선택사항)
-read -p "🔗 Do you want to remove the MCP network? (y/N): " -n 1 -r
-echo
-if [[ $REPLY =~ ^[Yy]$ ]]; then
-    echo "🔗 Removing MCP network..."
-    docker network rm mcp-network 2>/dev/null || echo "Network was already removed or in use"
-fi
-
 # 최종 상태 확인
 echo "📋 Final status check..."
 if docker ps -a --filter "name=mcp-" --format "table {{.Names}}\t{{.Status}}" | grep -q mcp-; then

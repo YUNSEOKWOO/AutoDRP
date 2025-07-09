@@ -9,6 +9,9 @@ import atexit
 import docker
 from langchain_mcp_adapters.client import MultiServerMCPClient
 
+# =========================================================================================
+container_names = ["mcp-sequential", "mcp-desktop-commander", "mcp-context7", "mcp-serena"]
+# =========================================================================================
 
 class MCPManager:
     """Simple MCP server manager with Docker container support."""
@@ -20,35 +23,26 @@ class MCPManager:
         self.tools = {}
         self._initialized = False
         self._init_lock = asyncio.Lock()
-        self.use_gateway = os.getenv("USE_MCP_GATEWAY", "false").lower() == "true"
         self.docker_client = None
+        self.global_settings = {}
         
-        if self.use_gateway:
-            try:
-                self.docker_client = docker.from_env()
-                print("[MCP] Docker gateway mode enabled")
-            except Exception as e:
-                print(f"[MCP] Failed to connect to Docker: {e}")
-                self.use_gateway = False
+        try:
+            self.docker_client = docker.from_env()
+            print("[MCP] Docker direct connection mode enabled")
+        except Exception as e:
+            print(f"[MCP] Failed to connect to Docker: {e}")
+            raise
         
         atexit.register(self.stop_all_servers)
     
     async def load_config(self) -> Dict[str, Any]:
         """Load MCP configuration."""
         try:
-            # Choose config file based on gateway mode
-            config_files = []
-            if self.use_gateway:
-                config_files = ["mcp-gateway.json", self.config_path]
-            else:
-                config_files = [self.config_path]
-                
-            possible_paths = []
-            for config_file in config_files:
-                possible_paths.extend([
-                    config_file,
-                    f"../../{config_file}"
-                ])
+            # Use default local config
+            possible_paths = [
+                self.config_path,
+                f"../../{self.config_path}"
+            ]
             
             for path in possible_paths:
                 if await asyncio.to_thread(os.path.exists, path):
@@ -57,7 +51,7 @@ class MCPManager:
                             return json.load(f)
                     
                     config = await asyncio.to_thread(read_json, path)
-                    print(f"[MCP] Loaded config from: {path} (gateway: {self.use_gateway})")
+                    print(f"[MCP] Loaded config from: {path}")
                     return config
             
             raise FileNotFoundError(f"Config not found. Tried: {possible_paths}")
@@ -78,18 +72,18 @@ class MCPManager:
                 print("[MCP] Starting server initialization...")
                 config = await self.load_config()
                 
-                if self.use_gateway:
-                    return await self._initialize_gateway_servers(config)
-                else:
-                    return await self._initialize_local_servers(config)
+                return await self._initialize_container_servers(config)
                 
             except Exception as e:
                 print(f"[MCP] Initialization failed: {e}")
                 raise
     
-    async def _initialize_gateway_servers(self, config: Dict[str, Any]):
-        """Initialize MCP servers using Docker gateway."""
+    async def _initialize_container_servers(self, config: Dict[str, Any]):
+        """Initialize MCP servers using direct container connections."""
         try:
+            # Store global settings for use in connection methods
+            self.global_settings = config.get("settings", {})
+            
             # Wait for containers to be ready
             await self._wait_for_containers()
             
@@ -102,34 +96,13 @@ class MCPManager:
                 self.tools[server_name] = tools
             
             self._initialized = True
-            print("[MCP] All gateway servers initialized")
+            print("[MCP] All container servers initialized")
             return self.tools
             
         except Exception as e:
-            print(f"[MCP] Gateway initialization failed: {e}")
+            print(f"[MCP] Container initialization failed: {e}")
             raise
     
-    async def _initialize_local_servers(self, config: Dict[str, Any]):
-        """Initialize MCP servers using local processes."""
-        # Start servers that need startup
-        for server_name, server_config in config["servers"].items():
-            if not server_config.get("enabled", True):
-                continue
-            
-            if server_config.get("startup_required", False):
-                await self._start_server(server_name, server_config)
-        
-        # Connect to all servers
-        for server_name, server_config in config["servers"].items():
-            if not server_config.get("enabled", True):
-                continue
-            
-            tools = await self._connect_server(server_name, server_config)
-            self.tools[server_name] = tools
-        
-        self._initialized = True
-        print("[MCP] All local servers initialized")
-        return self.tools
     
     async def _wait_for_containers(self):
         """Wait for MCP containers to be ready."""
@@ -162,20 +135,13 @@ class MCPManager:
         
         print("[MCP] Warning: Not all containers are ready, proceeding anyway")
     
-    async def _connect_container_server(self, server_name: str, config: Dict[str, Any]):
+    async def _connect_container_server(self, server_name: str, server_config: Dict[str, Any]):
         """Connect to a containerized MCP server."""
         try:
-            # Map server names to container names
-            container_mapping = {
-                "sequential_thinking": "mcp-sequential", 
-                "desktop_commander": "mcp-desktop-commander",
-                "context7": "mcp-context7",
-                "serena": "mcp-serena"
-            }
-            
-            container_name = container_mapping.get(server_name)
+            # Get container configuration from server config
+            container_name = server_config.get("container_name")
             if not container_name:
-                print(f"[MCP] No container mapping for {server_name}")
+                print(f"[MCP] No container_name specified for {server_name}")
                 return []
             
             # Check if container is running
@@ -183,40 +149,37 @@ class MCPManager:
                 print(f"[MCP] Container {container_name} is not running")
                 return []
             
-            # Configure connection based on transport type
-            if config.get("transport") == "http":
-                # HTTP transport for Context7
-                client_config = {
-                    server_name: {
-                        "url": f"http://localhost:8082/mcp",
-                        "transport": "streamable_http"
-                    }
+            # Build docker exec command from configuration
+            command = server_config.get("command", "node")
+            args = server_config.get("args", ["dist/index.js"])
+            transport = server_config.get("transport", "stdio")
+            
+            docker_args = ["exec", "-i", container_name, command] + args
+            
+            client_config = {
+                server_name: {
+                    "command": "docker",
+                    "args": docker_args,
+                    "transport": transport
                 }
-            else:
-                # stdio transport for other servers
-                if server_name == "serena":
-                    # Serena uses Python-based MCP server
-                    docker_args = ["exec", "-i", container_name, ".venv/bin/serena-mcp-server", "--transport", "stdio", "--project", "/workspace"]
-                else:
-                    # Default Node.js servers
-                    docker_args = ["exec", "-i", container_name, "node", "dist/index.js"]
-                
-                client_config = {
-                    server_name: {
-                        "command": "docker",
-                        "args": docker_args,
-                        "transport": "stdio"
-                    }
-                }
+            }
             
             # Create MCP client and get real tools
+            print(f"[MCP] Creating client for {server_name} with config: {client_config}")
             client = MultiServerMCPClient(client_config)
             self.clients[server_name] = client
             
-            # Get real MCP tools from the server
-            tools = await client.get_tools()
-            print(f"[MCP] Connected to container {container_name}: {len(tools)} real tools")
-            return tools
+            # Get real MCP tools from the server with timeout
+            try:
+                print(f"[MCP] Getting tools from {server_name}...")
+                # Use timeout from global settings
+                timeout = float(self.global_settings.get("connection_timeout", 15))
+                tools = await asyncio.wait_for(client.get_tools(), timeout=timeout)
+                print(f"[MCP] Connected to container {container_name}: {len(tools)} real tools")
+                return tools
+            except asyncio.TimeoutError:
+                print(f"[MCP] Connection to {container_name} timed out after {timeout} seconds")
+                return []
             
         except Exception as e:
             print(f"[MCP] Failed to connect to container {server_name}: {e}")
