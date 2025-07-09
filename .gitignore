@@ -43,6 +43,7 @@ dmypy.json
 models/
 data/
 AutoDRP.egg-info/
+gateway.unused
 
 # Ignore Claude config
 .claude/

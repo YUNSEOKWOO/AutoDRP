@@ -9,9 +9,9 @@ import atexit
 import docker
 from langchain_mcp_adapters.client import MultiServerMCPClient
 
-# =========================================================================================
+
 container_names = ["mcp-sequential", "mcp-desktop-commander", "mcp-context7", "mcp-serena"]
-# =========================================================================================
+
 
 class MCPManager:
     """Simple MCP server manager with Docker container support."""
@@ -41,7 +41,8 @@ class MCPManager:
             # Use default local config
             possible_paths = [
                 self.config_path,
-                f"../../{self.config_path}"
+                f"../../{self.config_path}",
+                f"/home/ysu1516/LangGraph/AutoDRP/{self.config_path}"
             ]
             
             for path in possible_paths:
@@ -109,7 +110,6 @@ class MCPManager:
         if not self.docker_client:
             return
             
-        container_names = ["mcp-sequential", "mcp-desktop-commander", "mcp-context7", "mcp-serena"]
         max_wait = 30  # seconds
         wait_interval = 2
         
@@ -165,20 +165,21 @@ class MCPManager:
             }
             
             # Create MCP client and get real tools
-            print(f"[MCP] Creating client for {server_name} with config: {client_config}")
             client = MultiServerMCPClient(client_config)
             self.clients[server_name] = client
             
             # Get real MCP tools from the server with timeout
             try:
-                print(f"[MCP] Getting tools from {server_name}...")
                 # Use timeout from global settings
                 timeout = float(self.global_settings.get("connection_timeout", 15))
                 tools = await asyncio.wait_for(client.get_tools(), timeout=timeout)
-                print(f"[MCP] Connected to container {container_name}: {len(tools)} real tools")
+                print(f"[MCP] Connected to container {container_name}: {len(tools)} tools")
                 return tools
             except asyncio.TimeoutError:
                 print(f"[MCP] Connection to {container_name} timed out after {timeout} seconds")
+                return []
+            except Exception as conn_error:
+                print(f"[MCP] Connection error for {server_name}: {conn_error}")
                 return []
             
         except Exception as e:
