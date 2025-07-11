@@ -23,6 +23,7 @@ from AutoDRP.utils import get_pdf_analyzer
 MODEL_NAME = "claude-3-5-haiku-20241022"
 MODEL_PROVIDER = "anthropic"
 
+
 # Configure which agents to activate
 # Available agents: analyzing_agent, data_agent, env_agent, mcp_agent, code_agent
 ACTIVE_AGENTS = [
@@ -33,32 +34,34 @@ ACTIVE_AGENTS = [
     # "code_agent"
 ]
 
+# Get USER_ID from environment for container naming
+user_id = os.getenv('USER_ID', '')
 # Agent metadata for dynamic creation
 AGENT_METADATA = {
     "analyzing_agent": {
         "prompt": "analyzing_prompt",
-        "mcp_tools": ["mcp-sequential", "mcp-desktop-commander", "mcp-serena"],
+        "mcp_tools": [f"mcp-sequential_{user_id}", f"mcp-desktop-commander_{user_id}", f"mcp-serena_{user_id}"],
         "special_tools": ["pdf_analyzer"],
         "description": "Research paper analysis and code inspection"
     },
     "data_agent": {
         "prompt": "data_agent_prompt",
-        "mcp_tools": ["mcp-sequential", "mcp-desktop-commander", "mcp-context7", "mcp-serena"],
+        "mcp_tools": [f"mcp-sequential_{user_id}", f"mcp-desktop-commander_{user_id}", f"mcp-context7_{user_id}", f"mcp-serena_{user_id}"],
         "description": "Custom data preprocessing pipeline creation"
     },
     "env_agent": {
         "prompt": "env_agent_prompt", 
-        "mcp_tools": ["mcp-sequential", "mcp-context7"],
+        "mcp_tools": [f"mcp-sequential_{user_id}", f"mcp-context7_{user_id}"],
         "description": "Docker environment and dependency management"
     },
     "mcp_agent": {
         "prompt": "mcp_agent_prompt",
-        "mcp_tools": ["mcp-sequential", "mcp-context7"],
+        "mcp_tools": [f"mcp-sequential_{user_id}", f"mcp-context7_{user_id}"],
         "description": "MCP server coordination and API wrapping"
     },
     "code_agent": {
         "prompt": "code_agent_prompt",
-        "mcp_tools": ["mcp-sequential", "mcp-desktop-commander"],
+        "mcp_tools": [f"mcp-sequential_{user_id}", f"mcp-desktop-commander_{user_id}"],
         "description": "Model execution and API communication"
     }
 }
