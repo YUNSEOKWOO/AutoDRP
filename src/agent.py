@@ -27,7 +27,7 @@ MODEL_PROVIDER = "anthropic"
 # Available agents: analyzing_agent, data_agent, env_agent, mcp_agent, code_agent
 ACTIVE_AGENTS = [
     # "analyzing_agent",
-    "data_agent", 
+    "data_agent",
     # "env_agent",
     # "mcp_agent", 
     # "code_agent"

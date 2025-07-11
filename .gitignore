@@ -48,3 +48,5 @@ gateway.unused
 # Ignore Claude config
 .claude/
 CLAUDE.md
+.serena
+del_notuse

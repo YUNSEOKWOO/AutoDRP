@@ -99,9 +99,15 @@ class MCPManager:
                 return []
             
             # Get server configuration from mcp.json
-            server_config = self.config.get("servers", {}).get(container_name, {})
+            # Extract base name from container name (remove USER_ID suffix)
+            base_name = container_name
+            user_id = os.getenv('USER_ID', '').strip()
+            if user_id and container_name.endswith(f'-{user_id}'):
+                base_name = container_name[:-len(f'-{user_id}')]
+            
+            server_config = self.config.get("servers", {}).get(base_name, {})
             if not server_config:
-                print(f"[MCP] No configuration found for {container_name}")
+                print(f"[MCP] No configuration found for {base_name} (container: {container_name})")
                 return []
             
             # Build docker exec command from configuration

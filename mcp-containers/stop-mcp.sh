@@ -5,6 +5,7 @@ source "$(dirname "$0")/../.env"
 
 # MCP 환경 정지 스크립트
 echo "🛑 Stopping MCP environment..."
+echo "👤 Using USER_ID: $USER_ID"
 echo "📋 MCP Names: $MCP_NAMES"
 
 # MCP 컨테이너들 정지

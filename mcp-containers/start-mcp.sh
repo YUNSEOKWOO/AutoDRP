@@ -6,32 +6,39 @@ source "$(dirname "$0")/../.env"
 # MCP 환경 시작 스크립트 (환경변수 사용)
 echo "🚀 Starting MCP environment..."
 echo "📁 Using PROJECT_ROOT: $PROJECT_ROOT"
+echo "👤 Using USER_ID: $USER_ID"
 echo "📋 MCP Names: $MCP_NAMES"
+
+# Generate dynamic container names
+SEQUENTIAL_NAME="mcp-sequential-${USER_ID}"
+DESKTOP_NAME="mcp-desktop-commander-${USER_ID}"
+CONTEXT7_NAME="mcp-context7-${USER_ID}"
+SERENA_NAME="mcp-serena-${USER_ID}"
 
 echo "🧹 Cleaning up existing containers..."
 docker stop $MCP_NAMES 2>/dev/null || true
 docker rm $MCP_NAMES 2>/dev/null || true
 
 echo "🧠 Starting sequential thinking server..."
-docker run -d --name mcp-sequential --restart unless-stopped \
+docker run -d --name ${SEQUENTIAL_NAME} --restart unless-stopped \
   -i -t mcp/sequentialthinking
 
 echo "🖥️ Starting desktop commander server..."
-docker run -d --name mcp-desktop-commander --restart unless-stopped \
+docker run -d --name ${DESKTOP_NAME} --restart unless-stopped \
   -v $PROJECT_ROOT:/workspace -i -t mcp/desktop-commander
 
 echo "📚 Starting context7 server..."
-docker run -d --name mcp-context7 --restart unless-stopped \
+docker run -d --name ${CONTEXT7_NAME} --restart unless-stopped \
   -e MCP_TRANSPORT=stdio -i -t mcp/context7
 
 echo "🔍 Starting Serena server..."
-docker run -d --name mcp-serena --restart unless-stopped \
+docker run -d --name ${SERENA_NAME} --restart unless-stopped \
   -v $PROJECT_ROOT:/workspace \
   -e SERENA_DOCKER=1 -e SERENA_PORT=9121 -e SERENA_DASHBOARD_PORT=24283 -i -t \
   ghcr.io/oraios/serena:latest .venv/bin/serena-mcp-server --transport stdio --project AutoDRP
 
 # Serena 컨테이너 패키지 설치
-echo "📦 Installing data science packages in Serena container..."
+echo "📦 Installing preprocessing packages in Serena container..."
 sleep 8  # 컨테이너 완전 시작 대기
 
 if [ -f "$PROJECT_ROOT/requirements_preprocessing.txt" ]; then
@@ -39,23 +46,23 @@ if [ -f "$PROJECT_ROOT/requirements_preprocessing.txt" ]; then
     
     # Step 1: Install pip if not available
     echo "🔧 Ensuring pip is available in virtual environment..."
-    docker exec mcp-serena python -m ensurepip --upgrade
+    docker exec ${SERENA_NAME} python -m ensurepip --upgrade
     if [ $? -eq 0 ]; then
         echo "✅ pip installed/upgraded successfully"
     else
         echo "❌ Failed to install pip"
-        docker logs mcp-serena --tail 10
+        docker logs ${SERENA_NAME} --tail 10
         exit 1
     fi
     
     # Step 2: Install packages from requirements
-    echo "📦 Installing data science packages..."
-    docker exec mcp-serena python -m pip install -r /workspace/requirements_preprocessing.txt
+    echo "📦 Installing preprocessing packages..."
+    docker exec ${SERENA_NAME} python -m pip install -r /workspace/requirements_preprocessing.txt
     if [ $? -eq 0 ]; then
-        echo "✅ Data science packages installed successfully in Serena container"
+        echo "✅ Preprocessing packages installed successfully in Serena container"
     else
         echo "❌ Failed to install packages in Serena container"
-        docker logs mcp-serena --tail 60
+        docker logs ${SERENA_NAME} --tail 60
     fi
 else
     echo "⚠️ requirements_preprocessing.txt not found, skipping package installation"
