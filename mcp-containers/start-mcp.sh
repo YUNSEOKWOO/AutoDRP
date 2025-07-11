@@ -9,12 +9,6 @@ echo "📁 Using PROJECT_ROOT: $PROJECT_ROOT"
 echo "👤 Using USER_ID: $USER_ID"
 echo "📋 MCP Names: $MCP_NAMES"
 
-# Generate dynamic container names
-SEQUENTIAL_NAME="mcp-sequential-${USER_ID}"
-DESKTOP_NAME="mcp-desktop-commander-${USER_ID}"
-CONTEXT7_NAME="mcp-context7-${USER_ID}"
-SERENA_NAME="mcp-serena-${USER_ID}"
-
 echo "🧹 Cleaning up existing containers..."
 docker stop $MCP_NAMES 2>/dev/null || true
 docker rm $MCP_NAMES 2>/dev/null || true

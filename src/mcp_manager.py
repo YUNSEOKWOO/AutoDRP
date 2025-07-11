@@ -102,8 +102,8 @@ class MCPManager:
             # Extract base name from container name (remove USER_ID suffix)
             base_name = container_name
             user_id = os.getenv('USER_ID', '').strip()
-            if user_id and container_name.endswith(f'-{user_id}'):
-                base_name = container_name[:-len(f'-{user_id}')]
+            if user_id and container_name.endswith(f'_{user_id}'):
+                base_name = container_name[:-len(f'_{user_id}')]
             
             server_config = self.config.get("servers", {}).get(base_name, {})
             if not server_config:

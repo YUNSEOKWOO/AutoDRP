@@ -21,11 +21,11 @@ seaborn>=0.12.0
 # 바이오인포매틱스 (선택적)
 biopython>=1.81
 
-# API 호출출
+# API 호출
 requests>=2.31.0
-
-# 네트워크 분석
-networkx>=3.0.0
 
 # 인코딩
 chardet
+
+# 네트워크 분석
+networkx>=3.0.0
